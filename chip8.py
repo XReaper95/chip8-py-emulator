@@ -86,52 +86,52 @@ class Chip8:
 
     # INSTRUCTIONS EXECUTION
 
-    def clear_display(self):  # CLS
+    def clear_display_00e0(self):
         self.gfx.clear()
         self.gfx = bytearray(SCREEN_HEIGHT * SCREEN_WIDTH)
         self.draw_flag = True
 
-    def return_subroutine(self):  # RET
+    def return_subroutine_00ee(self):
         self.pc = self.stack.pop()
 
-    def jump_to(self, addr):  # JP
+    def jump_to_1nnn(self, addr):
         self.pc = addr
 
-    def call_subroutine(self, addr):  # CALL
+    def call_subroutine_2nnn(self, addr):
         self.stack.append(self.pc)
         self.pc = addr
 
-    def skip_if_equal_value(self, vx, byte):  # SE
+    def skip_if_equal_value_3xkk(self, vx, byte):
         if self.gp_registers[vx] == byte:
             self.pc += 2
 
-    def skip_if_not_equal_value(self, vx, byte):  # SNE
+    def skip_if_not_equal_value_4xkk(self, vx, byte):
         if self.gp_registers[vx] != byte:
             self.pc += 2
 
-    def skip_if_equal_reg(self, vx, vy):  # SE
+    def skip_if_equal_reg_5xy0(self, vx, vy):
         if self.gp_registers[vx] == self.gp_registers[vy]:
             self.pc += 2
 
-    def set_reg_value(self, vx, byte):  # LD
+    def set_reg_value_6xkk(self, vx, byte):
         self.gp_registers[vx] = byte
 
-    def add_value(self, vx, byte):  # ADD
+    def add_value_7xkk(self, vx, byte):
         self.gp_registers[vx] += byte
 
-    def set_reg_reg(self, vx, vy):  # LD
+    def set_reg_reg_8xy0(self, vx, vy):
         self.gp_registers[vx] = self.gp_registers[vy]
 
-    def or_reg_reg(self, vx, vy):  # OR
+    def or_reg_reg_8xy1(self, vx, vy):
         self.gp_registers[vx] |= self.gp_registers[vy]
 
-    def and_reg_reg(self, vx, vy):  # and
+    def and_reg_reg_8xy2(self, vx, vy):
         self.gp_registers[vx] &= self.gp_registers[vy]
 
-    def xor_reg_reg(self, vx, vy):  # XOR
+    def xor_reg_reg_8xy3(self, vx, vy):
         self.gp_registers[vx] ^= self.gp_registers[vy]
 
-    def add_reg_carry(self, vx, vy):  # ADD
+    def add_reg_carry_8xy4(self, vx, vy):
         result = self.gp_registers[vx] + self.gp_registers[vy]
         if result > 0xFF:
             self.vf_register = 0x01
@@ -140,7 +140,7 @@ class Chip8:
 
         self.gp_registers[vx] = result & 0xFF
 
-    def sub_reg_reg(self, vx, vy):  # SUB
+    def sub_reg_reg_8xy5(self, vx, vy):
         if self.gp_registers[vx] > self.gp_registers[vy]:
             self.vf_register = 0x01
         else:
@@ -148,32 +148,32 @@ class Chip8:
 
         self.gp_registers[vx] = self.gp_registers[vx] - self.gp_registers[vy]
 
-    def shr_reg(self, vx):  # SHR
+    def shr_reg_8xy6(self, vx):
         self.vf_register = self.gp_registers[vx] & 0x01
         self.gp_registers[vx] >>= 2
 
-    def subn_reg_reg(self, vx, vy):  # SUBN
-        self.sub_reg_reg(vy, vx)
+    def subn_reg_reg_8xy7(self, vx, vy):
+        self.sub_reg_reg_8xy5(vy, vx)
 
-    def shl_reg(self, vx):  # SHL
+    def shl_reg_8xye(self, vx):
         self.vf_register = self.gp_registers[vx] & 0x01
         self.gp_registers[vx] <<= 2
 
-    def skip_if_not_equal_reg(self, vx, vy):  # SNE
+    def skip_if_not_equal_reg_9xy0(self, vx, vy):
         if self.gp_registers[vx] != self.gp_registers[vy]:
             self.pc += 2
 
-    def set_index_value(self, addr):  # LD
+    def set_index_value_annn(self, addr):
         self.index_register = addr
 
-    def jump_value_offset(self, addr):  # JP
+    def jump_value_offset_bnnn(self, addr):
         self.pc = self.gp_registers[0] + addr
 
-    def set_random_and_value(self, vx, byte):  # RND
+    def set_random_and_value_cxkk(self, vx, byte):
         rnd = randint(0, 255)
         self.gp_registers[vx] = rnd & byte
 
-    def display_sprite(self, vx, vy, nibble):  # DRW
+    def display_sprite_dxyn(self, vx, vy, nibble):
         sprite = self.memory[self.index_register: nibble + 1]
         x_offset = self.gp_registers[vx]
         y_offset = self.gp_registers[vy]
@@ -202,13 +202,13 @@ class Chip8:
 
         self.draw_flag = True
 
-    def skip_if_pressed(self, vx):  # SKP
+    def skip_if_pressed_ex9e(self, vx):
         if self.key_pressed:
             key = self.keypad[self.key_pressed]
             if self.gp_registers[vx] == key:
                 self.pc += 2
 
-    def skip_if_not_pressed(self, vx):  # SKNP
+    def skip_if_not_pressed_exa1(self, vx):
         if self.key_pressed:
             key = self.keypad[self.key_pressed]
             if self.gp_registers[vx] != key:
@@ -216,28 +216,28 @@ class Chip8:
         else:
             self.pc += 2
 
-    def save_delay(self, vx):  # LD
+    def save_delay_fx07(self, vx):
         self.gp_registers[vx] = self.delay_timer
 
-    def wait_for_keypress(self, vx):  # LD
+    def wait_for_keypress_fx0a(self, vx):
         self.pause = True
         if self.key_pressed:
             self.pause = False
             self.gp_registers[vx] = self.keypad[self.key_pressed]
 
-    def set_delay(self, vx):  # LD
+    def set_delay_fx15(self, vx):
         self.delay_timer = self.gp_registers[vx]
 
-    def set_sound(self, vx):  # LD
+    def set_sound_fx18(self, vx):
         self.sound_timer = self.gp_registers[vx]
 
-    def add_index(self, vx):  # ADD
+    def add_index_fx1e(self, vx):
         self.index_register += self.gp_registers[vx]
 
-    def set_sprite_loc(self, vx):  # LD
+    def set_sprite_loc_fx29(self, vx):
         self.index_register = self.gp_registers[vx] * 5
 
-    def bcd_repr(self, vx):  # LD
+    def bcd_repr_fx33(self, vx):
         reg_value = self.gp_registers[vx]
         hundreds = reg_value // 100
         reg_value *= 100
@@ -251,8 +251,8 @@ class Chip8:
         self.memory[self.index_register + 1] = tens
         self.memory[self.index_register + 2] = units
 
-    def store_regs(self, vx):  # LD
+    def store_regs_fx55(self, vx):
         self.memory[self.index_register:] = self.gp_registers[0:vx]
 
-    def read_regs(self, vx):  # LD
+    def read_regs_fx65(self, vx):
         self.gp_registers[0:vx] = self.memory[self.index_register:]

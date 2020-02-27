@@ -75,16 +75,30 @@ class Chip8:
         Load a game into memory, also load fonts
         :param game: Game to load
         """
-        self.memory[0: MIN_PROGRAM_ADDR - 1] = self.font_set
+        self.memory[0: len(self.font_set)] = self.font_set
+        game_size = 0
 
         with game.open(mode='rb') as game_file:
-            for i, byte_ in enumerate(game_file.read(), 0):
-                self.memory[MIN_PROGRAM_ADDR + i] = byte_
+            for i, byte in enumerate(game_file.read(), 0):
+                self.memory[MIN_PROGRAM_ADDR + i] = byte
+                game_size += 1
+
+        print(f"Game size is {game_size} bytes")
 
     def fetch_opcode(self):
         return self.memory[self.pc] << 8 | self.memory[self.pc + 1]
 
+    def memory_dump(self):
+        memory_pointer = MIN_PROGRAM_ADDR
+
+        while memory_pointer < SYSTEM_MEMORY - 1:
+            yield hex(memory_pointer), self.memory[memory_pointer] << 8 | self.memory[memory_pointer + 1]
+            memory_pointer += 2
+
     # INSTRUCTIONS EXECUTION
+
+    def do_nothing(self):
+        pass
 
     def clear_display_00e0(self):
         self.gfx.clear()
@@ -252,7 +266,9 @@ class Chip8:
         self.memory[self.index_register + 2] = units
 
     def store_regs_fx55(self, vx):
-        self.memory[self.index_register:] = self.gp_registers[0:vx]
+        for reg in range(vx):
+            self.memory[self.index_register + reg] = self.gp_registers[reg]
 
     def read_regs_fx65(self, vx):
-        self.gp_registers[0:vx] = self.memory[self.index_register:]
+        for reg in range(vx):
+            self.gp_registers[reg] = self.memory[self.index_register + reg]

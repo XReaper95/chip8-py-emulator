@@ -6,7 +6,6 @@ from functools import partial
 class Instruction:
     def __init__(self, assembly, func, *args):
         self.assembly = assembly
-        self.args = args
         if args:
             self._callable = partial(func, *args)
         else:
@@ -29,21 +28,25 @@ class InstructionDecoder:
         x = (opcode & 0x0F00) >> 8  # register x
         y = (opcode & 0x00F0) >> 4  # register y
 
+        # NOP
+        if opcode == 0x0000:
+            return Instruction('NOP', Chip8.do_nothing)
+
         # SINGLE CASES
         opcode_single = opcode & 0xF000
         single_opcodes = {
-            0x1000: Instruction(f'JP {nnn}', Chip8.jump_to_1nnn, nnn),
-            0x2000: Instruction(f'CALL {nnn}', Chip8.call_subroutine_2nnn, nnn),
-            0x3000: Instruction(f'SE V{x}, {kk}', Chip8.skip_if_equal_value_3xkk, x, kk),
-            0x4000: Instruction(f'SNE V{x}, {kk}', Chip8.skip_if_not_equal_value_4xkk, x, kk),
+            0x1000: Instruction(f'JP {hex(nnn)}', Chip8.jump_to_1nnn, nnn),
+            0x2000: Instruction(f'CALL {hex(nnn)}', Chip8.call_subroutine_2nnn, nnn),
+            0x3000: Instruction(f'SE V{x}, {hex(kk)}', Chip8.skip_if_equal_value_3xkk, x, kk),
+            0x4000: Instruction(f'SNE V{x}, {hex(kk)}', Chip8.skip_if_not_equal_value_4xkk, x, kk),
             0x5000: Instruction(f'SE V{x}, V{y}', Chip8.skip_if_equal_reg_5xy0, x, y),
-            0x6000: Instruction(f'LD V{x}, {kk}', Chip8.set_reg_value_6xkk, x, kk),
-            0x7000: Instruction(f'ADD V{x}, {kk} ', Chip8.add_value_7xkk, x, kk),
+            0x6000: Instruction(f'LD V{x}, {hex(kk)}', Chip8.set_reg_value_6xkk, x, kk),
+            0x7000: Instruction(f'ADD V{x}, {hex(kk)} ', Chip8.add_value_7xkk, x, kk),
             0x9000: Instruction(f'SNE V{x}, V{y}', Chip8.skip_if_not_equal_reg_9xy0, x, y),
-            0xA000: Instruction(f'LD I, {nnn}', Chip8.set_index_value_annn, nnn),
-            0xB000: Instruction(f'JP V0, {nnn}', Chip8.jump_value_offset_bnnn, nnn),
-            0xC000: Instruction(f'RND V{x}, {kk}', Chip8.set_random_and_value_cxkk, x, kk),
-            0xD000: Instruction(f'DRW V{x}, V{y}, {n}', Chip8.display_sprite_dxyn, x, y, n),
+            0xA000: Instruction(f'LD I, {hex(nnn)}', Chip8.set_index_value_annn, nnn),
+            0xB000: Instruction(f'JP V0, {hex(nnn)}', Chip8.jump_value_offset_bnnn, nnn),
+            0xC000: Instruction(f'RND V{x}, {hex(kk)}', Chip8.set_random_and_value_cxkk, x, kk),
+            0xD000: Instruction(f'DRW V{x}, V{y}, {hex(n)}', Chip8.display_sprite_dxyn, x, y, n),
         }
         if opcode_single in single_opcodes:
             return single_opcodes[opcode_single]
@@ -92,7 +95,7 @@ class InstructionDecoder:
         if opcode_ef in multiple_opcodes_ef:
             return multiple_opcodes_ef[opcode_ef]
 
-        raise NotImplementedError(f"Opcode {opcode} not implemented")
+        return Instruction(f"Invalid opcode {opcode}", Chip8.do_nothing)
 
 
 

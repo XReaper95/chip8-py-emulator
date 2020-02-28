@@ -8,19 +8,19 @@ MIN_PROGRAM_ADDR_ETI = 0x600  # for ETI 660 computer
 REGISTERS_COUNT = 16
 
 STACK_DEPTH = 16
-SCREEN_HEIGHT = 64
-SCREEN_WIDTH = 32
+SCREEN_WIDTH = 64
+SCREEN_HEIGHT = 32
 KEYPAD_SIZE = 16
 
 
 class Chip8:
     def __init__(self):
         # MEMORY
-        self.memory = bytearray(SYSTEM_MEMORY)
+        self.memory = [0] * SYSTEM_MEMORY
         self.pc = 0
 
         # REGISTERS
-        self.gp_registers = bytearray(REGISTERS_COUNT - 1)
+        self.gp_registers = [0] * (REGISTERS_COUNT - 1)
         self.vf_register = 0
         self.index_register = 0
         self.delay_timer = 0
@@ -30,7 +30,7 @@ class Chip8:
         self.stack = [0] * STACK_DEPTH
 
         # SCREEN
-        self.gfx = [[0] * SCREEN_HEIGHT] * SCREEN_WIDTH
+        self.gfx = [[0] * SCREEN_WIDTH] * SCREEN_HEIGHT
 
         # KEYPAD
         self.keypad = {
@@ -75,9 +75,10 @@ class Chip8:
         Load a game into memory, also load fonts
         :param game: Game to load
         """
-        self.memory[0: len(self.font_set)] = self.font_set
-        game_size = 0
+        for i, font_byte in enumerate(self.font_set, 0):
+            self.memory[i] = font_byte
 
+        game_size = 0
         with game.open(mode='rb') as game_file:
             for i, byte in enumerate(game_file.read(), 0):
                 self.memory[MIN_PROGRAM_ADDR + i] = byte
@@ -86,9 +87,11 @@ class Chip8:
         print(f"Game size is {game_size} bytes")
 
     def fetch_opcode(self):
-        return self.memory[self.pc] << 8 | self.memory[self.pc + 1]
+        opcode = self.memory[self.pc] << 8 | self.memory[self.pc + 1]
+        self.pc += 2
+        return opcode
 
-    def memory_dump(self):
+    def dump_memory(self):
         memory_pointer = MIN_PROGRAM_ADDR
 
         while memory_pointer < SYSTEM_MEMORY - 1:
@@ -101,8 +104,7 @@ class Chip8:
         pass
 
     def clear_display_00e0(self):
-        self.gfx.clear()
-        self.gfx = bytearray(SCREEN_HEIGHT * SCREEN_WIDTH)
+        self.gfx = [[0] * SCREEN_WIDTH] * SCREEN_HEIGHT
         self.draw_flag = True
 
     def return_subroutine_00ee(self):
@@ -188,31 +190,34 @@ class Chip8:
         self.gp_registers[vx] = rnd & byte
 
     def display_sprite_dxyn(self, vx, vy, nibble):
-        sprite = self.memory[self.index_register: nibble + 1]
-        x_offset = self.gp_registers[vx]
-        y_offset = self.gp_registers[vy]
+        sprite = self.memory[self.index_register: self.index_register + nibble]  # array of bytes
+        start_column = self.gp_registers[vx]
+        start_row = self.gp_registers[vy]
 
-        for x_pos, sprite_byte in enumerate(sprite, 0):  # iterate sprite
+        # convert sprite to plain bitmap (tuple of tuples)
+        sprite_bitmap = tuple(tuple(int(bit) for bit in format(byte, '08b')) for byte in sprite)
+
+        # iterate the sprite overlapping region with the screen (8X{sprite length in bytes})
+        for column in range(8):
             # wrap screen when sprite is out of bounds at x
-            if x_offset + x_pos > SCREEN_HEIGHT:
-                x_offset = 0
+            if start_column + column > SCREEN_WIDTH:
+                start_column = 0
 
-            screen_row = self.gfx[x_offset + x_pos]  # run for every row
+            for row in range(len(sprite)):
+                # wrap screen when pixel is out of bounds at y
+                if start_row + row > SCREEN_HEIGHT:
+                    start_row = 0
 
-            for y_pos in range(0, 8):  # iterate screen row 8-bits a time
-                # wrap screen when sprite is out of bounds at y
-                if y_offset + y_pos > SCREEN_WIDTH:
-                    y_offset = 0
+                # compare screen pixel with sprite pixel
+                screen_pixel = self.gfx[start_row + row][start_column + column]
+                sprite_pixel = sprite_bitmap[row][column]
 
-                # convert byte to bit tuple
-                sprite_bits = tuple(int(item) for item in (format(int(sprite_byte, base=16), '08b')))
-                pixel = screen_row[y_offset + y_pos]
-                bit = sprite_bits[y_pos]
-
-                if pixel == bit:
+                # collision detection
+                if screen_pixel == sprite_pixel:
                     self.vf_register = 1
 
-                self.gfx[x_offset + x_pos][y_offset + y_pos] = pixel ^ bit
+                # XOR pixels
+                self.gfx[start_row + row][start_column + column] = screen_pixel ^ sprite_pixel
 
         self.draw_flag = True
 

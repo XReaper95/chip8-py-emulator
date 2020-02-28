@@ -1,14 +1,20 @@
 import sys
+import tkinter as tk
 from pathlib import Path
+from time import sleep
 
 from chip8 import Chip8
 from decoder import InstructionDecoder
-from time import sleep
+from utils import snapshot_frame
 
 
-class Emulator:
+class Emulator(tk.Tk):
     def __init__(self):
+        super().__init__()
         self.chip8 = Chip8()
+        self.title("Chip8 PyEmulator")
+        self.resizable(False, False)
+        self.screen = tk.Canvas()
 
     def load_rom(self, game: Path):
         self.chip8.initialize()
@@ -18,12 +24,14 @@ class Emulator:
         """
         Emulate one CPU cycle
         """
+        frame_count = 0
+
         try:
             while True:
                 # fetch opcode
                 opcode = self.chip8.fetch_opcode()
                 # decode opcode
-                instruction = InstructionDecoder.decode_from(opcode)
+                instruction = InstructionDecoder.decode_from(self.chip8, opcode)
 
                 # execute opcode
                 if not self.chip8.pause:
@@ -41,9 +49,11 @@ class Emulator:
 
                     # draw_screen
                     if self.chip8.draw_flag:
-                        print('drawing')
+                        snapshot_frame(self.chip8.gfx)
+                        self.chip8.draw_flag = False
+                        frame_count += 1
 
-                sleep(0.016)
+                sleep(60 / 1000)
 
         except KeyboardInterrupt:
             print("Game stopped")
@@ -56,16 +66,16 @@ class Emulator:
         pass
 
     def decompile(self):
-        for address, opcode in self.chip8.memory_dump():
+        for address, opcode in self.chip8.dump_memory():
             # decode opcode
-            instruction = InstructionDecoder.decode_from(opcode)
+            instruction = InstructionDecoder.decode_from(self.chip8, opcode)
             if instruction.assembly != 'NOP':
                 print(address, instruction)
 
 
 if __name__ == '__main__':
     emu = Emulator()
-    rom = Path('ROMs', 'PONG')
+    rom = Path('ROMs', '15 Puzzle [Roger Ivie].ch8')
     emu.load_rom(rom)
-    emu.decompile()
+    emu.tick()
 

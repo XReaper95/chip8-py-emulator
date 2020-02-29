@@ -12,6 +12,14 @@ def generate_random_frame(w, h):
     return result
 
 
+def print_sprite(sprite_bitmap):
+    for row in sprite_bitmap:
+        for bit in row:
+            pixel = '*' if bit else ' '
+            print(pixel, end='')
+        print()
+
+
 def snapshot_frame(gfx):
     horizontal_margin = '#' * (len(gfx[0]) + 2)
 

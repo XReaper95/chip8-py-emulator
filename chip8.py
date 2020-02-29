@@ -1,6 +1,8 @@
 from pathlib import Path
 from random import randint
 
+from decoder import InstructionDecoder
+
 SYSTEM_MEMORY = 4096
 MIN_PROGRAM_ADDR = 0x200
 MIN_PROGRAM_ADDR_ETI = 0x600  # for ETI 660 computer
@@ -20,8 +22,7 @@ class Chip8:
         self.pc = 0
 
         # REGISTERS
-        self.gp_registers = [0] * (REGISTERS_COUNT - 1)
-        self.vf_register = 0
+        self.gp_registers = [0] * REGISTERS_COUNT
         self.index_register = 0
         self.delay_timer = 0
         self.sound_timer = 0
@@ -30,7 +31,7 @@ class Chip8:
         self.stack = [0] * STACK_DEPTH
 
         # SCREEN
-        self.gfx = [[0] * SCREEN_WIDTH] * SCREEN_HEIGHT
+        self.gfx = [[0 for _ in range(SCREEN_WIDTH)] for _ in range(SCREEN_HEIGHT)]
 
         # KEYPAD
         self.keypad = {
@@ -86,10 +87,25 @@ class Chip8:
 
         print(f"Game size is {game_size} bytes")
 
-    def fetch_opcode(self):
+    def emulate_cycle(self):
+        # fetch
         opcode = self.memory[self.pc] << 8 | self.memory[self.pc + 1]
-        self.pc += 2
-        return opcode
+        # decode
+        instruction = InstructionDecoder.decode_from(self, opcode)
+        # execute
+        instruction.run()
+        # update timers and pc
+        if not self.pause:
+            self.pc += 2
+
+            if self.delay_timer > 0:
+                self.delay_timer -= 1
+
+            if self.sound_timer > 0:
+                self.sound_timer -= 1
+                if self.sound_timer == 1:
+                    # play beep
+                    print('beep')
 
     def dump_memory(self):
         memory_pointer = MIN_PROGRAM_ADDR
@@ -150,29 +166,29 @@ class Chip8:
     def add_reg_carry_8xy4(self, vx, vy):
         result = self.gp_registers[vx] + self.gp_registers[vy]
         if result > 0xFF:
-            self.vf_register = 0x01
+            self.gp_registers[0xF] = 0x01
         else:
-            self.vf_register = 0x00
+            self.gp_registers[0xF] = 0x00
 
         self.gp_registers[vx] = result & 0xFF
 
     def sub_reg_reg_8xy5(self, vx, vy):
         if self.gp_registers[vx] > self.gp_registers[vy]:
-            self.vf_register = 0x01
+            self.gp_registers[0xF] = 0x01
         else:
-            self.vf_register = 0x00
+            self.gp_registers[0xF] = 0x00
 
         self.gp_registers[vx] = self.gp_registers[vx] - self.gp_registers[vy]
 
     def shr_reg_8xy6(self, vx):
-        self.vf_register = self.gp_registers[vx] & 0x01
+        self.gp_registers[0xF] = self.gp_registers[vx] & 0x01
         self.gp_registers[vx] >>= 2
 
     def subn_reg_reg_8xy7(self, vx, vy):
         self.sub_reg_reg_8xy5(vy, vx)
 
     def shl_reg_8xye(self, vx):
-        self.vf_register = self.gp_registers[vx] & 0x01
+        self.gp_registers[0xF] = self.gp_registers[vx] & 0x01
         self.gp_registers[vx] <<= 2
 
     def skip_if_not_equal_reg_9xy0(self, vx, vy):
@@ -191,33 +207,31 @@ class Chip8:
 
     def display_sprite_dxyn(self, vx, vy, nibble):
         sprite = self.memory[self.index_register: self.index_register + nibble]  # array of bytes
-        start_column = self.gp_registers[vx]
-        start_row = self.gp_registers[vy]
+        screen_x = self.gp_registers[vx] - 1
+        screen_y = self.gp_registers[vy]
 
         # convert sprite to plain bitmap (tuple of tuples)
         sprite_bitmap = tuple(tuple(int(bit) for bit in format(byte, '08b')) for byte in sprite)
+        sprite_h = len(sprite)
 
         # iterate the sprite overlapping region with the screen (8X{sprite length in bytes})
-        for column in range(8):
-            # wrap screen when sprite is out of bounds at x
-            if start_column + column > SCREEN_WIDTH:
-                start_column = 0
+        for row in range(sprite_h):
+            # wrap screen when pixel is out of bounds at y
+            if screen_y + row >= SCREEN_HEIGHT:
+                screen_y = 0
 
-            for row in range(len(sprite)):
+            for pixel_pos, pixel in enumerate(sprite_bitmap[row], 0):
                 # wrap screen when pixel is out of bounds at y
-                if start_row + row > SCREEN_HEIGHT:
-                    start_row = 0
+                if screen_x + pixel_pos >= SCREEN_WIDTH:
+                    screen_x = 0
 
-                # compare screen pixel with sprite pixel
-                screen_pixel = self.gfx[start_row + row][start_column + column]
-                sprite_pixel = sprite_bitmap[row][column]
-
+                screen_pixel = self.gfx[screen_y + row][screen_x + pixel_pos]
                 # collision detection
-                if screen_pixel == sprite_pixel:
-                    self.vf_register = 1
+                if screen_pixel == pixel:
+                    self.gp_registers[0xF] = 1
 
                 # XOR pixels
-                self.gfx[start_row + row][start_column + column] = screen_pixel ^ sprite_pixel
+                self.gfx[screen_y + row][screen_x + pixel_pos] = screen_pixel ^ pixel
 
         self.draw_flag = True
 

@@ -25,10 +25,10 @@ class Chip8:
     def __init__(self):
         self.memory: List[int] = [0] * SYSTEM_MEMORY
         self.pc: int = 0
-        self.gp_registers: List[int] = [0] * REGISTERS_COUNT
-        self.index_register: int = 0
-        self.delay_timer: int = 0
-        self.sound_timer: int = 0
+        self.v: List[int] = [0] * REGISTERS_COUNT
+        self.index_reg: int = 0
+        self.delay_reg: int = 0
+        self.sound_reg: int = 0
         self.stack: List[int] = [0] * STACK_DEPTH
         self.gfx: List[List[int]] = [[0 for _ in range(SCREEN_WIDTH)] for _ in range(SCREEN_HEIGHT)]
         self.keypad: Dict[Text, int] = {}
@@ -97,12 +97,12 @@ class Chip8:
             else:
                 self.inc_pc = True
 
-            if self.delay_timer > 0:
-                self.delay_timer -= 1
+            if self.delay_reg > 0:
+                self.delay_reg -= 1
 
-            if self.sound_timer > 0:
-                self.sound_timer -= 1
-                if self.sound_timer == 1:
+            if self.sound_reg > 0:
+                self.sound_reg -= 1
+                if self.sound_reg == 1:
                     # play beep
                     print('beep')
 
@@ -142,89 +142,89 @@ class Chip8:
         self.pc = addr
         self.inc_pc = False
 
-    def skip_if_equal_value_3xkk(self, vx, byte) -> NoReturn:
-        if self.gp_registers[vx] == byte:
+    def skip_if_equal_value_3xkk(self, x, byte) -> NoReturn:
+        if self.v[x] == byte:
             self.pc += 2
 
-    def skip_if_not_equal_value_4xkk(self, vx, byte) -> NoReturn:
-        if self.gp_registers[vx] != byte:
+    def skip_if_not_equal_value_4xkk(self, x, byte) -> NoReturn:
+        if self.v[x] != byte:
             self.pc += 2
 
-    def skip_if_equal_reg_5xy0(self, vx, vy) -> NoReturn:
-        if self.gp_registers[vx] == self.gp_registers[vy]:
+    def skip_if_equal_reg_5xy0(self, x, y) -> NoReturn:
+        if self.v[x] == self.v[y]:
             self.pc += 2
 
-    def set_reg_value_6xkk(self, vx, byte) -> NoReturn:
-        self.gp_registers[vx] = byte
+    def set_reg_value_6xkk(self, x, byte) -> NoReturn:
+        self.v[x] = byte
 
-    def add_value_7xkk(self, vx, byte):
-        result = self.gp_registers[vx] + byte
+    def add_value_7xkk(self, x, byte):
+        result = self.v[x] + byte
         if result > 0xFF:
-            self.gp_registers[0xF] = 0x01
+            self.v[0xF] = 0x01
         else:
-            self.gp_registers[0xF] = 0x00
+            self.v[0xF] = 0x00
 
-        self.gp_registers[vx] = result & 0xFF
+        self.v[x] = result & 0xFF
 
-    def set_reg_reg_8xy0(self, vx, vy) -> NoReturn:
-        self.gp_registers[vx] = self.gp_registers[vy]
+    def set_reg_reg_8xy0(self, x, y) -> NoReturn:
+        self.v[x] = self.v[y]
 
-    def or_reg_reg_8xy1(self, vx, vy) -> NoReturn:
-        self.gp_registers[vx] |= self.gp_registers[vy]
+    def or_reg_reg_8xy1(self, x, y) -> NoReturn:
+        self.v[x] |= self.v[y]
 
-    def and_reg_reg_8xy2(self, vx, vy) -> NoReturn:
-        self.gp_registers[vx] &= self.gp_registers[vy]
+    def and_reg_reg_8xy2(self, x, y) -> NoReturn:
+        self.v[x] &= self.v[y]
 
-    def xor_reg_reg_8xy3(self, vx, vy) -> NoReturn:
-        self.gp_registers[vx] ^= self.gp_registers[vy]
+    def xor_reg_reg_8xy3(self, x, y) -> NoReturn:
+        self.v[x] ^= self.v[y]
 
-    def add_reg_carry_8xy4(self, vx, vy) -> NoReturn:
-        result = self.gp_registers[vx] + self.gp_registers[vy]
+    def add_reg_carry_8xy4(self, x, y) -> NoReturn:
+        result = self.v[x] + self.v[y]
         if result > 0xFF:
-            self.gp_registers[0xF] = 0x01
+            self.v[0xF] = 0x01
         else:
-            self.gp_registers[0xF] = 0x00
+            self.v[0xF] = 0x00
 
-        self.gp_registers[vx] = result & 0xFF
+        self.v[x] = result & 0xFF
 
-    def sub_reg_reg_8xy5(self, vx, vy) -> NoReturn:
-        if self.gp_registers[vy] > self.gp_registers[vx]:
-            self.gp_registers[0xF] = 0x00
+    def sub_reg_reg_8xy5(self, x, y) -> NoReturn:
+        if self.v[y] > self.v[x]:
+            self.v[0xF] = 0x00
         else:
-            self.gp_registers[0xF] = 0x01
+            self.v[0xF] = 0x01
 
-        self.gp_registers[vx] -= self.gp_registers[vy]
+        self.v[x] -= self.v[y]
 
-    def shr_reg_8xy6(self, vx) -> NoReturn:
-        self.gp_registers[0xF] = self.gp_registers[vx] & 0x1
-        self.gp_registers[vx] >>= 1
+    def shr_reg_8xy6(self, x) -> NoReturn:
+        self.v[0xF] = self.v[x] & 0x1
+        self.v[x] >>= 1
 
-    def subn_reg_reg_8xy7(self, vx, vy) -> NoReturn:
-        self.sub_reg_reg_8xy5(vy, vx)
+    def subn_reg_reg_8xy7(self, x, y) -> NoReturn:
+        self.sub_reg_reg_8xy5(y, x)
 
-    def shl_reg_8xye(self, vx) -> NoReturn:
-        self.gp_registers[0xF] = self.gp_registers[vx] >> 7
-        self.gp_registers[vx] <<= 1
+    def shl_reg_8xye(self, x) -> NoReturn:
+        self.v[0xF] = self.v[x] >> 7
+        self.v[x] <<= 1
 
-    def skip_if_not_equal_reg_9xy0(self, vx, vy) -> NoReturn:
-        if self.gp_registers[vx] != self.gp_registers[vy]:
+    def skip_if_not_equal_reg_9xy0(self, x, y) -> NoReturn:
+        if self.v[x] != self.v[y]:
             self.pc += 2
 
     def set_index_value_annn(self, addr) -> NoReturn:
-        self.index_register = addr
+        self.index_reg = addr
 
     def jump_value_offset_bnnn(self, addr) -> NoReturn:
-        self.pc = self.gp_registers[0] + addr
+        self.pc = self.v[0] + addr
         self.inc_pc = False
 
-    def set_random_and_value_cxkk(self, vx, byte) -> NoReturn:
+    def set_random_and_value_cxkk(self, x, byte) -> NoReturn:
         rnd = randint(0, 255)
-        self.gp_registers[vx] = rnd & byte
+        self.v[x] = rnd & byte
 
-    def display_sprite_dxyn(self, vx, vy, nibble) -> NoReturn:
-        sprite = self.memory[self.index_register: self.index_register + nibble]  # array of bytes
-        screen_x = self.gp_registers[vx]
-        screen_y = self.gp_registers[vy]
+    def display_sprite_dxyn(self, x, y, nibble) -> NoReturn:
+        sprite = self.memory[self.index_reg: self.index_reg + nibble]  # array of bytes
+        screen_x = self.v[x]
+        screen_y = self.v[y]
 
         # convert sprite to plain bitmap (tuple of tuples)
         sprite_bitmap = tuple(tuple(int(bit) for bit in format(byte, '08b')) for byte in sprite)
@@ -238,68 +238,68 @@ class Chip8:
                         screen_pixel = self.gfx[screen_y + row][screen_x + pixel_pos]
                         # collision detection
                         if screen_pixel == pixel:
-                            self.gp_registers[0xF] = 1
+                            self.v[0xF] = 1
                         # XOR pixels
                         self.gfx[screen_y + row][screen_x + pixel_pos] = screen_pixel ^ pixel
 
         self.draw_flag = True
 
-    def skip_if_pressed_ex9e(self, vx) -> NoReturn:
+    def skip_if_pressed_ex9e(self, x) -> NoReturn:
         if self.key_pressed:
             key = self.keypad[self.key_pressed]
-            if self.gp_registers[vx] == key:
+            if self.v[x] == key:
                 self.pc += 2
             self.key_pressed = ''
 
-    def skip_if_not_pressed_exa1(self, vx) -> NoReturn:
+    def skip_if_not_pressed_exa1(self, x) -> NoReturn:
         if self.key_pressed:
             key = self.keypad[self.key_pressed]
-            if self.gp_registers[vx] != key:
+            if self.v[x] != key:
                 self.pc += 2
             self.key_pressed = ''
         else:
             self.pc += 2
 
-    def save_delay_fx07(self, vx) -> NoReturn:
-        self.gp_registers[vx] = self.delay_timer
+    def save_delay_fx07(self, x) -> NoReturn:
+        self.v[x] = self.delay_reg
 
-    def wait_for_keypress_fx0a(self, vx) -> NoReturn:
+    def wait_for_keypress_fx0a(self, x) -> NoReturn:
         self.halt_execution = True
         if self.key_pressed:
             self.halt_execution = False
-            self.gp_registers[vx] = self.keypad[self.key_pressed]
+            self.v[x] = self.keypad[self.key_pressed]
             self.key_pressed = ''
 
-    def set_delay_fx15(self, vx) -> NoReturn:
-        self.delay_timer = self.gp_registers[vx]
+    def set_delay_fx15(self, x) -> NoReturn:
+        self.delay_reg = self.v[x]
 
-    def set_sound_fx18(self, vx) -> NoReturn:
-        self.sound_timer = self.gp_registers[vx]
+    def set_sound_fx18(self, x) -> NoReturn:
+        self.sound_reg = self.v[x]
 
-    def add_index_fx1e(self, vx) -> NoReturn:
-        result = self.index_register + self.gp_registers[vx]
+    def add_index_fx1e(self, x) -> NoReturn:
+        result = self.index_reg + self.v[x]
         if result > 0xFF:
-            self.gp_registers[0xF] = 0x01
+            self.v[0xF] = 0x01
         else:
-            self.gp_registers[0xF] = 0x00
-        self.index_register = result
+            self.v[0xF] = 0x00
+        self.index_reg = result
 
-    def set_sprite_loc_fx29(self, vx) -> NoReturn:
-        self.index_register = self.gp_registers[vx] * 5
+    def set_sprite_loc_fx29(self, x) -> NoReturn:
+        self.index_reg = self.v[x] * 5
 
-    def bcd_repr_fx33(self, vx) -> NoReturn:
-        hundreds = self.gp_registers[vx] // 100
-        tens = (self.gp_registers[vx] // 10) % 10
-        units = self.gp_registers[vx] % 10
+    def bcd_repr_fx33(self, x) -> NoReturn:
+        hundreds = self.v[x] // 100
+        tens = (self.v[x] // 10) % 10
+        units = self.v[x] % 10
 
-        self.memory[self.index_register] = hundreds
-        self.memory[self.index_register + 1] = tens
-        self.memory[self.index_register + 2] = units
+        self.memory[self.index_reg] = hundreds
+        self.memory[self.index_reg + 1] = tens
+        self.memory[self.index_reg + 2] = units
 
-    def store_regs_fx55(self, vx) -> NoReturn:
-        for reg in range(vx + 1):
-            self.memory[self.index_register + reg] = self.gp_registers[reg]
+    def store_regs_fx55(self, x) -> NoReturn:
+        for reg in range(x + 1):
+            self.memory[self.index_reg + reg] = self.v[reg]
 
-    def read_regs_fx65(self, vx) -> NoReturn:
-        for reg in range(vx + 1):
-            self.gp_registers[reg] = self.memory[self.index_register + reg]
+    def read_regs_fx65(self, x) -> NoReturn:
+        for reg in range(x + 1):
+            self.v[reg] = self.memory[self.index_reg + reg]

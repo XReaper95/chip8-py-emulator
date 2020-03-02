@@ -20,6 +20,23 @@ SCREEN_WIDTH = 64
 SCREEN_HEIGHT = 32
 KEYPAD_SIZE = 16
 
+KEY_1 = '1'
+KEY_2 = '2'
+KEY_3 = '3'
+KEY_4 = '4'
+KEY_5 = '5'
+KEY_6 = '6'
+KEY_7 = '7'
+KEY_8 = '8'
+KEY_9 = '9'
+KEY_0 = '0'
+KEY_A = 'A'
+KEY_B = 'B'
+KEY_C = 'C'
+KEY_D = 'D'
+KEY_E = 'E'
+KEY_F = 'F'
+
 
 class Chip8:
     def __init__(self):
@@ -63,10 +80,10 @@ class Chip8:
             self.memory[i] = font_byte
 
         self.keypad = {
-            "1": 0x1, "2": 0x2, "3": 0x3, "4": 0xC,
-            "q": 0x4, "w": 0x5, "e": 0x6, "r": 0xD,
-            "a": 0x7, "s": 0x8, "d": 0x9, "f": 0xE,
-            "z": 0xA, "x": 0x0, "c": 0xB, "v": 0xF
+            KEY_1: 0x1, KEY_2: 0x2, KEY_3: 0x3, KEY_C: 0xC,
+            KEY_4: 0x4, KEY_5: 0x5, KEY_6: 0x6, KEY_D: 0xD,
+            KEY_7: 0x7, KEY_8: 0x8, KEY_9: 0x9, KEY_E: 0xE,
+            KEY_A: 0xA, KEY_0: 0x0, KEY_B: 0xB, KEY_F: 0xF
         }
 
     def load_game(self, game_path: Path) -> NoReturn:
@@ -107,7 +124,8 @@ class Chip8:
                     print('beep')
 
     def key_press(self, key: Text) -> NoReturn:
-        self.key_pressed = key
+        if not self.key_pressed:
+            self.key_pressed = key
 
     def dump_memory(self) -> NoReturn:
         memory_pointer = MIN_PROGRAM_ADDR

@@ -1,10 +1,26 @@
-import sys
-
-import pygame
+import pygame as pg
 from pygame import Surface
 from pathlib import Path
 
-from chip8 import Chip8
+from chip8 import (
+    Chip8,
+    KEY_1,
+    KEY_2,
+    KEY_3,
+    KEY_4,
+    KEY_5,
+    KEY_6,
+    KEY_7,
+    KEY_8,
+    KEY_9,
+    KEY_0,
+    KEY_A,
+    KEY_B,
+    KEY_C,
+    KEY_D,
+    KEY_E,
+    KEY_F
+)
 from utils import center_pygame_windows
 
 
@@ -24,19 +40,23 @@ class PyGameChip8:
         self.__init_screen()
 
     def run(self):
+        from time import sleep
         self.__initialize()
-        pygame.time.set_timer(self._cycle_event_id, self._tick_rate_ms)
 
         try:
             running = True
             while running:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        pygame.quit()
+                for event in pg.event.get():
+                    if event.type == pg.QUIT:
+                        pg.quit()
                         running = False
                         break
-                    if event.type == 2:
-                        self.__tick()
+                    if event.type == pg.KEYDOWN:
+                        self.__handle_input(event.key)
+
+                sleep(0.001)
+                self.__tick()
+
         except KeyboardInterrupt:
             pass
 
@@ -45,10 +65,8 @@ class PyGameChip8:
 
         if self._chip8.draw_flag:
             self.__draw(self._chip8.gfx)
-            pygame.display.flip()
+            pg.display.flip()
             self._chip8.draw_flag = False
-
-        self.__handle_input()
 
     def __draw(self, frame):
         for row, pixels in enumerate(frame, 0):
@@ -56,35 +74,44 @@ class PyGameChip8:
                 rect = self.__get_rect_pos(col, row)
 
                 if pixel:
-                    pygame.draw.rect(self._screen, pygame.Color('white'), pygame.Rect(*rect))
+                    pg.draw.rect(self._screen, pg.Color('white'), pg.Rect(*rect))
                 else:
-                    pygame.draw.rect(self._screen, pygame.Color('black'), pygame.Rect(*rect))
+                    pg.draw.rect(self._screen, pg.Color('black'), pg.Rect(*rect))
 
-    def __handle_input(self):
-        pass
+    def __handle_input(self, key_id: int):
+        keymap = {
+            pg.K_1: KEY_1, pg.K_2: KEY_2, pg.K_3: KEY_3, pg.K_4: KEY_C,
+            pg.K_q: KEY_4, pg.K_w: KEY_5, pg.K_e: KEY_6, pg.K_r: KEY_D,
+            pg.K_a: KEY_7, pg.K_s: KEY_8, pg.K_d: KEY_9, pg.K_f: KEY_E,
+            pg.K_z: KEY_A, pg.K_x: KEY_0, pg.K_c: KEY_B, pg.K_v: KEY_F,
+            }
+
+        key = keymap.get(key_id)
+        if id:
+            self._chip8.key_press(key)
 
     def __initialize(self):
         self._chip8.initialize()
-        rom = Path('ROMs', 'test_opcode.ch8')
+        rom = Path('ROMs', 'Addition Problems [Paul C. Moews].ch8')
         self._chip8.load_game(rom)
 
     def __init_screen(self):
         # background
-        self._screen.fill(pygame.Color('gray'))
+        self._screen.fill((35, 35, 35))
 
         # tiles
         for row in range(self._height):
             for col in range(self._width):
                 rect = self.__get_rect_pos(col, row)
-                pygame.draw.rect(self._screen, pygame.Color('black'), pygame.Rect(*rect))
+                pg.draw.rect(self._screen, pg.Color('black'), pg.Rect(*rect))
 
     def __create_windows(self):
         screen_width = self._width * self._pixel_size + (self._width - self._border_size)
         screen_height = self._height * self._pixel_size + (self._height - self._border_size)
-        # workaround to get pygame at center of main display
+        # workaround to get pygame window at center of main display
         center_pygame_windows(screen_width, screen_height)
-        pygame.init()
-        self._screen = pygame.display.set_mode((screen_width, screen_height))
+        pg.init()
+        self._screen = pg.display.set_mode((screen_width, screen_height))
 
     def __get_rect_pos(self, col, row):
         x1 = col * self._pixel_size + col

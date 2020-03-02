@@ -1,4 +1,29 @@
+import platform
 from random import randint
+
+
+def center_pygame_windows(width: int, height: int):
+    import screeninfo
+    import os
+
+    if platform.system() == 'Windows':
+        import ctypes
+        ctypes.windll.user32.SetProcessDPIAware()
+        monitors = screeninfo.get_monitors(screeninfo.Enumerator.Cygwin)
+    else:
+        monitors = screeninfo.get_monitors()
+
+    if len(monitors) < 1:
+        print("Cannot get display info, using default windows position")
+        return
+
+    current_monitor = monitors[-1]
+
+    screen_width = current_monitor.width
+    screen_height = current_monitor.height
+    x = (screen_width // 2) - (width // 2)
+    y = (screen_height // 2) - (height // 2)
+    os.environ['SDL_VIDEO_WINDOW_POS'] = f'{x},{y}'
 
 
 def generate_random_frame(w, h, pix):

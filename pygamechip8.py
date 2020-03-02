@@ -44,6 +44,7 @@ class PyGameChip8:
         self._chip8.emulate_cycle()
 
         if self._chip8.draw_flag:
+            self.__draw(self._chip8.gfx)
             pygame.display.flip()
             self._chip8.draw_flag = False
 

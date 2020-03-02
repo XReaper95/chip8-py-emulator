@@ -33,11 +33,13 @@ class PyGameChip8:
         self._border_size: int = 1
         self._screen: Surface
         self._cycle_event_id = 2
-        self._tick_rate_ms = 1
+        self.beep_sound = None
 
     def setup(self):
         self.__create_windows()
         self.__init_screen()
+        pg.mixer.init()
+        self.beep_sound = pg.mixer.Sound('res/beep.wav')
 
     def run(self):
         from time import sleep
@@ -54,7 +56,7 @@ class PyGameChip8:
                     if event.type == pg.KEYDOWN:
                         self.__handle_input(event.key)
 
-                sleep(0.001)
+               # sleep(0.001)
                 self.__tick()
 
         except KeyboardInterrupt:
@@ -67,6 +69,8 @@ class PyGameChip8:
             self.__draw(self._chip8.gfx)
             pg.display.flip()
             self._chip8.draw_flag = False
+
+        self.__play_sound()
 
     def __draw(self, frame):
         for row, pixels in enumerate(frame, 0):
@@ -90,9 +94,17 @@ class PyGameChip8:
         if id:
             self._chip8.key_press(key)
 
+    def __play_sound(self):
+        if self._chip8.sound_reg > 0:
+            self.beep_sound.play()
+            if self._chip8.sound_reg == 1:
+                self.beep_sound.stop()
+            self._chip8.sound_reg -= 1
+
+
     def __initialize(self):
         self._chip8.initialize()
-        rom = Path('ROMs', 'Addition Problems [Paul C. Moews].ch8')
+        rom = Path('ROMs', 'Pong [Paul Vervalin, 1990].ch8')
         self._chip8.load_game(rom)
 
     def __init_screen(self):

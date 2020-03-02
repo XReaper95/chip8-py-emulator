@@ -105,7 +105,9 @@ class Chip8:
         # decode
         instruction = InstructionDecoder.decode_from(self, opcode)
         # execute
-        print(hex(opcode), instruction.assembly)
+        #print(hex(opcode), instruction.assembly)
+        if self.key_pressed:
+            print(self.key_pressed)
         instruction.run()
         # update timers and pc
         if not self.halt_execution and self.pc + 2 < SYSTEM_MEMORY:
@@ -116,12 +118,6 @@ class Chip8:
 
             if self.delay_reg > 0:
                 self.delay_reg -= 1
-
-            if self.sound_reg > 0:
-                self.sound_reg -= 1
-                if self.sound_reg == 1:
-                    # play beep
-                    print('beep')
 
     def key_press(self, key: Text) -> NoReturn:
         if not self.key_pressed:

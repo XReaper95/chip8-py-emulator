@@ -120,6 +120,7 @@ class Chip8:
             memory_pointer += 2
 
     # INSTRUCTIONS EXECUTION
+    # x, y, addr, byte : int
 
     def do_nothing(self) -> NoReturn:
         pass

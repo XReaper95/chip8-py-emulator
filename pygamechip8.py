@@ -6,12 +6,14 @@ from chip8 import Chip8
 
 class PyGameChip8:
     def __init__(self):
-        self._chip8 = Chip8()
-        self._width = 64
-        self._height = 32
-        self._pixel_size = 10
-        self._border_size = 1
-        self._screen: pygame.Surface = None
+        self._chip8: Chip8 = Chip8()
+        self._width: int = 64
+        self._height: int = 32
+        self._pixel_size: int = 10
+        self._border_size: int = 1
+        self._screen: pygame.Surface
+        self._draw_event_id = 2
+        self._tick_rate_ms = 1
 
     def setup(self):
         self.__create_windows()
@@ -19,16 +21,14 @@ class PyGameChip8:
 
     def run(self):
         self.__initialize()
-        fr = False
-        pygame.time.set_timer(2, 1)
+        pygame.time.set_timer(self._draw_event_id, self._tick_rate_ms)
 
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    break
+                    pygame.quit()
                 if event.type == 2:
                     self.__tick()
-                    fr = not fr
                     pygame.display.flip()
 
     def __tick(self):
@@ -55,7 +55,7 @@ class PyGameChip8:
 
     def __initialize(self):
         self._chip8.initialize()
-        rom = Path('ROMs', 'Addition Problems [Paul C. Moews].ch8')
+        rom = Path('ROMs', 'test_opcode.ch8')
         self._chip8.load_game(rom)
 
     def __init_screen(self):

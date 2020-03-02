@@ -1,5 +1,11 @@
 from pathlib import Path
 from random import randint
+from typing import (
+    List,
+    Dict,
+    Text,
+    NoReturn
+)
 
 from decoder import InstructionDecoder
 
@@ -17,24 +23,45 @@ KEYPAD_SIZE = 16
 
 class Chip8:
     def __init__(self):
-        # MEMORY
-        self.memory = [0] * SYSTEM_MEMORY
-        self.pc = 0
-        self.inc_pc = True
+        self.memory: List[int] = [0] * SYSTEM_MEMORY
+        self.pc: int = 0
+        self.gp_registers: List[int] = [0] * REGISTERS_COUNT
+        self.index_register: int = 0
+        self.delay_timer: int = 0
+        self.sound_timer: int = 0
+        self.stack: List[int] = [0] * STACK_DEPTH
+        self.gfx: List[List[int]] = [[0 for _ in range(SCREEN_WIDTH)] for _ in range(SCREEN_HEIGHT)]
+        self.keypad: Dict[Text, int] = {}
+        self.key_pressed: Text = ''
+        self.font_set: List[int] = [0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0
+                                    0x20, 0x60, 0x20, 0x20, 0x70,  # 1
+                                    0xF0, 0x10, 0xF0, 0x80, 0xF0,  # 2
+                                    0xF0, 0x10, 0xF0, 0x10, 0xF0,  # 3
+                                    0x90, 0x90, 0xF0, 0x10, 0x10,  # 4
+                                    0xF0, 0x80, 0xF0, 0x10, 0xF0,  # 5
+                                    0xF0, 0x80, 0xF0, 0x90, 0xF0,  # 6
+                                    0xF0, 0x10, 0x20, 0x40, 0x40,  # 7
+                                    0xF0, 0x90, 0xF0, 0x90, 0xF0,  # 8
+                                    0xF0, 0x90, 0xF0, 0x10, 0xF0,  # 9
+                                    0xF0, 0x90, 0xF0, 0x90, 0x90,  # A
+                                    0xE0, 0x90, 0xE0, 0x90, 0xE0,  # B
+                                    0xF0, 0x80, 0x80, 0x80, 0xF0,  # C
+                                    0xE0, 0x90, 0x90, 0x90, 0xE0,  # D
+                                    0xF0, 0x80, 0xF0, 0x80, 0xF0,  # E
+                                    0xF0, 0x80, 0xF0, 0x80, 0x80]  # F
+        self.draw_flag: bool = False
+        self.inc_pc: bool = True
+        self.halt_execution: bool = False
 
-        # REGISTERS
-        self.gp_registers = [0] * REGISTERS_COUNT
-        self.index_register = 0
-        self.delay_timer = 0
-        self.sound_timer = 0
+    def initialize(self) -> NoReturn:
+        """
+        Initialize registers and memory
+        """
+        self.pc = MIN_PROGRAM_ADDR
 
-        # STACK
-        self.stack = [0] * STACK_DEPTH
+        for i, font_byte in enumerate(self.font_set, 0):
+            self.memory[i] = font_byte
 
-        # SCREEN
-        self.gfx = [[0 for _ in range(SCREEN_WIDTH)] for _ in range(SCREEN_HEIGHT)]
-
-        # KEYPAD
         self.keypad = {
             "1": 0x1, "2": 0x2, "3": 0x3, "4": 0xC,
             "q": 0x4, "w": 0x5, "e": 0x6, "r": 0xD,
@@ -42,53 +69,20 @@ class Chip8:
             "z": 0xA, "x": 0x0, "c": 0xB, "v": 0xF
         }
 
-        self.key_pressed = None
-
-        # MISC
-        self.font_set = [0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0
-                         0x20, 0x60, 0x20, 0x20, 0x70,  # 1
-                         0xF0, 0x10, 0xF0, 0x80, 0xF0,  # 2
-                         0xF0, 0x10, 0xF0, 0x10, 0xF0,  # 3
-                         0x90, 0x90, 0xF0, 0x10, 0x10,  # 4
-                         0xF0, 0x80, 0xF0, 0x10, 0xF0,  # 5
-                         0xF0, 0x80, 0xF0, 0x90, 0xF0,  # 6
-                         0xF0, 0x10, 0x20, 0x40, 0x40,  # 7
-                         0xF0, 0x90, 0xF0, 0x90, 0xF0,  # 8
-                         0xF0, 0x90, 0xF0, 0x10, 0xF0,  # 9
-                         0xF0, 0x90, 0xF0, 0x90, 0x90,  # A
-                         0xE0, 0x90, 0xE0, 0x90, 0xE0,  # B
-                         0xF0, 0x80, 0x80, 0x80, 0xF0,  # C
-                         0xE0, 0x90, 0x90, 0x90, 0xE0,  # D
-                         0xF0, 0x80, 0xF0, 0x80, 0xF0,  # E
-                         0xF0, 0x80, 0xF0, 0x80, 0x80]  # F
-
-        self.draw_flag: bool = False
-        self.pause = False
-
-    def initialize(self) -> None:
+    def load_game(self, game_path: Path) -> NoReturn:
         """
-        Initialize registers and memory
+        Load a game into memory
+        :param game_path: Game to load
         """
-        self.pc = MIN_PROGRAM_ADDR
-        self.index_register = 0
-
-    def load_game(self, game: Path) -> None:
-        """
-        Load a game into memory, also load fonts
-        :param game: Game to load
-        """
-        for i, font_byte in enumerate(self.font_set, 0):
-            self.memory[i] = font_byte
-
         game_size = 0
-        with game.open(mode='rb') as game_file:
+        with game_path.open(mode='rb') as game_file:
             for i, byte in enumerate(game_file.read(), 0):
                 self.memory[MIN_PROGRAM_ADDR + i] = byte
                 game_size += 1
 
         print(f"Game size is {game_size} bytes")
 
-    def emulate_cycle(self):
+    def emulate_cycle(self) -> NoReturn:
         # fetch
         opcode = self.memory[self.pc] << 8 | self.memory[self.pc + 1]
         # decode
@@ -97,7 +91,7 @@ class Chip8:
         print(hex(opcode), instruction.assembly)
         instruction.run()
         # update timers and pc
-        if not self.pause and self.pc + 2 < SYSTEM_MEMORY:
+        if not self.halt_execution and self.pc + 2 < SYSTEM_MEMORY:
             if self.inc_pc:
                 self.pc += 2
             else:
@@ -112,7 +106,10 @@ class Chip8:
                     # play beep
                     print('beep')
 
-    def dump_memory(self):
+    def key_press(self, key: Text) -> NoReturn:
+        self.key_pressed = key
+
+    def dump_memory(self) -> NoReturn:
         memory_pointer = MIN_PROGRAM_ADDR
 
         while memory_pointer < SYSTEM_MEMORY - 1:
@@ -124,40 +121,40 @@ class Chip8:
 
     # INSTRUCTIONS EXECUTION
 
-    def do_nothing(self):
+    def do_nothing(self) -> NoReturn:
         pass
 
-    def clear_display_00e0(self):
+    def clear_display_00e0(self) -> NoReturn:
         for row in range(len(self.gfx)):
             for pixel in range(len(self.gfx[0])):
                 self.gfx[row][pixel] = 0
         self.draw_flag = True
 
-    def return_subroutine_00ee(self):
+    def return_subroutine_00ee(self) -> NoReturn:
         self.pc = self.stack.pop()
 
     def jump_to_1nnn(self, addr):
         self.pc = addr
         self.inc_pc = False
 
-    def call_subroutine_2nnn(self, addr):
+    def call_subroutine_2nnn(self, addr) -> NoReturn:
         self.stack.append(self.pc)
         self.pc = addr
         self.inc_pc = False
 
-    def skip_if_equal_value_3xkk(self, vx, byte):
+    def skip_if_equal_value_3xkk(self, vx, byte) -> NoReturn:
         if self.gp_registers[vx] == byte:
             self.pc += 2
 
-    def skip_if_not_equal_value_4xkk(self, vx, byte):
+    def skip_if_not_equal_value_4xkk(self, vx, byte) -> NoReturn:
         if self.gp_registers[vx] != byte:
             self.pc += 2
 
-    def skip_if_equal_reg_5xy0(self, vx, vy):
+    def skip_if_equal_reg_5xy0(self, vx, vy) -> NoReturn:
         if self.gp_registers[vx] == self.gp_registers[vy]:
             self.pc += 2
 
-    def set_reg_value_6xkk(self, vx, byte):
+    def set_reg_value_6xkk(self, vx, byte) -> NoReturn:
         self.gp_registers[vx] = byte
 
     def add_value_7xkk(self, vx, byte):
@@ -169,19 +166,19 @@ class Chip8:
 
         self.gp_registers[vx] = result & 0xFF
 
-    def set_reg_reg_8xy0(self, vx, vy):
+    def set_reg_reg_8xy0(self, vx, vy) -> NoReturn:
         self.gp_registers[vx] = self.gp_registers[vy]
 
-    def or_reg_reg_8xy1(self, vx, vy):
+    def or_reg_reg_8xy1(self, vx, vy) -> NoReturn:
         self.gp_registers[vx] |= self.gp_registers[vy]
 
-    def and_reg_reg_8xy2(self, vx, vy):
+    def and_reg_reg_8xy2(self, vx, vy) -> NoReturn:
         self.gp_registers[vx] &= self.gp_registers[vy]
 
-    def xor_reg_reg_8xy3(self, vx, vy):
+    def xor_reg_reg_8xy3(self, vx, vy) -> NoReturn:
         self.gp_registers[vx] ^= self.gp_registers[vy]
 
-    def add_reg_carry_8xy4(self, vx, vy):
+    def add_reg_carry_8xy4(self, vx, vy) -> NoReturn:
         result = self.gp_registers[vx] + self.gp_registers[vy]
         if result > 0xFF:
             self.gp_registers[0xF] = 0x01
@@ -190,7 +187,7 @@ class Chip8:
 
         self.gp_registers[vx] = result & 0xFF
 
-    def sub_reg_reg_8xy5(self, vx, vy):
+    def sub_reg_reg_8xy5(self, vx, vy) -> NoReturn:
         if self.gp_registers[vy] > self.gp_registers[vx]:
             self.gp_registers[0xF] = 0x00
         else:
@@ -198,33 +195,33 @@ class Chip8:
 
         self.gp_registers[vx] -= self.gp_registers[vy]
 
-    def shr_reg_8xy6(self, vx):
+    def shr_reg_8xy6(self, vx) -> NoReturn:
         self.gp_registers[0xF] = self.gp_registers[vx] & 0x1
         self.gp_registers[vx] >>= 1
 
-    def subn_reg_reg_8xy7(self, vx, vy):
+    def subn_reg_reg_8xy7(self, vx, vy) -> NoReturn:
         self.sub_reg_reg_8xy5(vy, vx)
 
-    def shl_reg_8xye(self, vx):
+    def shl_reg_8xye(self, vx) -> NoReturn:
         self.gp_registers[0xF] = self.gp_registers[vx] >> 7
         self.gp_registers[vx] <<= 1
 
-    def skip_if_not_equal_reg_9xy0(self, vx, vy):
+    def skip_if_not_equal_reg_9xy0(self, vx, vy) -> NoReturn:
         if self.gp_registers[vx] != self.gp_registers[vy]:
             self.pc += 2
 
-    def set_index_value_annn(self, addr):
+    def set_index_value_annn(self, addr) -> NoReturn:
         self.index_register = addr
 
-    def jump_value_offset_bnnn(self, addr):
+    def jump_value_offset_bnnn(self, addr) -> NoReturn:
         self.pc = self.gp_registers[0] + addr
         self.inc_pc = False
 
-    def set_random_and_value_cxkk(self, vx, byte):
+    def set_random_and_value_cxkk(self, vx, byte) -> NoReturn:
         rnd = randint(0, 255)
         self.gp_registers[vx] = rnd & byte
 
-    def display_sprite_dxyn(self, vx, vy, nibble):
+    def display_sprite_dxyn(self, vx, vy, nibble) -> NoReturn:
         sprite = self.memory[self.index_register: self.index_register + nibble]  # array of bytes
         screen_x = self.gp_registers[vx]
         screen_y = self.gp_registers[vy]
@@ -247,36 +244,39 @@ class Chip8:
 
         self.draw_flag = True
 
-    def skip_if_pressed_ex9e(self, vx):
+    def skip_if_pressed_ex9e(self, vx) -> NoReturn:
         if self.key_pressed:
             key = self.keypad[self.key_pressed]
             if self.gp_registers[vx] == key:
                 self.pc += 2
+            self.key_pressed = ''
 
-    def skip_if_not_pressed_exa1(self, vx):
+    def skip_if_not_pressed_exa1(self, vx) -> NoReturn:
         if self.key_pressed:
             key = self.keypad[self.key_pressed]
             if self.gp_registers[vx] != key:
                 self.pc += 2
+            self.key_pressed = ''
         else:
             self.pc += 2
 
-    def save_delay_fx07(self, vx):
+    def save_delay_fx07(self, vx) -> NoReturn:
         self.gp_registers[vx] = self.delay_timer
 
-    def wait_for_keypress_fx0a(self, vx):
-        self.pause = True
+    def wait_for_keypress_fx0a(self, vx) -> NoReturn:
+        self.halt_execution = True
         if self.key_pressed:
-            self.pause = False
+            self.halt_execution = False
             self.gp_registers[vx] = self.keypad[self.key_pressed]
+            self.key_pressed = ''
 
-    def set_delay_fx15(self, vx):
+    def set_delay_fx15(self, vx) -> NoReturn:
         self.delay_timer = self.gp_registers[vx]
 
-    def set_sound_fx18(self, vx):
+    def set_sound_fx18(self, vx) -> NoReturn:
         self.sound_timer = self.gp_registers[vx]
 
-    def add_index_fx1e(self, vx):
+    def add_index_fx1e(self, vx) -> NoReturn:
         result = self.index_register + self.gp_registers[vx]
         if result > 0xFF:
             self.gp_registers[0xF] = 0x01
@@ -284,10 +284,10 @@ class Chip8:
             self.gp_registers[0xF] = 0x00
         self.index_register = result
 
-    def set_sprite_loc_fx29(self, vx):
+    def set_sprite_loc_fx29(self, vx) -> NoReturn:
         self.index_register = self.gp_registers[vx] * 5
 
-    def bcd_repr_fx33(self, vx):
+    def bcd_repr_fx33(self, vx) -> NoReturn:
         hundreds = self.gp_registers[vx] // 100
         tens = (self.gp_registers[vx] // 10) % 10
         units = self.gp_registers[vx] % 10
@@ -296,10 +296,10 @@ class Chip8:
         self.memory[self.index_register + 1] = tens
         self.memory[self.index_register + 2] = units
 
-    def store_regs_fx55(self, vx):
+    def store_regs_fx55(self, vx) -> NoReturn:
         for reg in range(vx + 1):
             self.memory[self.index_register + reg] = self.gp_registers[reg]
 
-    def read_regs_fx65(self, vx):
+    def read_regs_fx65(self, vx) -> NoReturn:
         for reg in range(vx + 1):
             self.gp_registers[reg] = self.memory[self.index_register + reg]

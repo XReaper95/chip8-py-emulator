@@ -20,6 +20,7 @@ class Chip8:
         # MEMORY
         self.memory = [0] * SYSTEM_MEMORY
         self.pc = 0
+        self.inc_pc = True
 
         # REGISTERS
         self.gp_registers = [0] * REGISTERS_COUNT
@@ -93,10 +94,14 @@ class Chip8:
         # decode
         instruction = InstructionDecoder.decode_from(self, opcode)
         # execute
+        print(hex(opcode), instruction.assembly)
         instruction.run()
         # update timers and pc
-        if not self.pause:
-            self.pc += 2
+        if not self.pause and self.pc + 2 < SYSTEM_MEMORY:
+            if self.inc_pc:
+                self.pc += 2
+            else:
+                self.inc_pc = True
 
             if self.delay_timer > 0:
                 self.delay_timer -= 1
@@ -111,7 +116,10 @@ class Chip8:
         memory_pointer = MIN_PROGRAM_ADDR
 
         while memory_pointer < SYSTEM_MEMORY - 1:
-            yield hex(memory_pointer), self.memory[memory_pointer] << 8 | self.memory[memory_pointer + 1]
+            opcode = self.memory[memory_pointer] << 8 | self.memory[memory_pointer + 1]
+            instruction = InstructionDecoder.decode_from(self, opcode)
+            if instruction.assembly != 'NOP':
+                print(hex(memory_pointer), instruction)
             memory_pointer += 2
 
     # INSTRUCTIONS EXECUTION
@@ -120,7 +128,9 @@ class Chip8:
         pass
 
     def clear_display_00e0(self):
-        self.gfx = [[0] * SCREEN_WIDTH] * SCREEN_HEIGHT
+        for row in range(len(self.gfx)):
+            for pixel in range(len(self.gfx[0])):
+                self.gfx[row][pixel] = 0
         self.draw_flag = True
 
     def return_subroutine_00ee(self):
@@ -128,10 +138,12 @@ class Chip8:
 
     def jump_to_1nnn(self, addr):
         self.pc = addr
+        self.inc_pc = False
 
     def call_subroutine_2nnn(self, addr):
         self.stack.append(self.pc)
         self.pc = addr
+        self.inc_pc = False
 
     def skip_if_equal_value_3xkk(self, vx, byte):
         if self.gp_registers[vx] == byte:
@@ -149,7 +161,13 @@ class Chip8:
         self.gp_registers[vx] = byte
 
     def add_value_7xkk(self, vx, byte):
-        self.gp_registers[vx] += byte
+        result = self.gp_registers[vx] + byte
+        if result > 0xFF:
+            self.gp_registers[0xF] = 0x01
+        else:
+            self.gp_registers[0xF] = 0x00
+
+        self.gp_registers[vx] = result & 0xFF
 
     def set_reg_reg_8xy0(self, vx, vy):
         self.gp_registers[vx] = self.gp_registers[vy]
@@ -173,23 +191,23 @@ class Chip8:
         self.gp_registers[vx] = result & 0xFF
 
     def sub_reg_reg_8xy5(self, vx, vy):
-        if self.gp_registers[vx] > self.gp_registers[vy]:
-            self.gp_registers[0xF] = 0x01
-        else:
+        if self.gp_registers[vy] > self.gp_registers[vx]:
             self.gp_registers[0xF] = 0x00
+        else:
+            self.gp_registers[0xF] = 0x01
 
-        self.gp_registers[vx] = self.gp_registers[vx] - self.gp_registers[vy]
+        self.gp_registers[vx] -= self.gp_registers[vy]
 
     def shr_reg_8xy6(self, vx):
-        self.gp_registers[0xF] = self.gp_registers[vx] & 0x01
-        self.gp_registers[vx] >>= 2
+        self.gp_registers[0xF] = self.gp_registers[vx] & 0x1
+        self.gp_registers[vx] >>= 1
 
     def subn_reg_reg_8xy7(self, vx, vy):
         self.sub_reg_reg_8xy5(vy, vx)
 
     def shl_reg_8xye(self, vx):
-        self.gp_registers[0xF] = self.gp_registers[vx] & 0x01
-        self.gp_registers[vx] <<= 2
+        self.gp_registers[0xF] = self.gp_registers[vx] >> 7
+        self.gp_registers[vx] <<= 1
 
     def skip_if_not_equal_reg_9xy0(self, vx, vy):
         if self.gp_registers[vx] != self.gp_registers[vy]:
@@ -200,6 +218,7 @@ class Chip8:
 
     def jump_value_offset_bnnn(self, addr):
         self.pc = self.gp_registers[0] + addr
+        self.inc_pc = False
 
     def set_random_and_value_cxkk(self, vx, byte):
         rnd = randint(0, 255)
@@ -207,7 +226,7 @@ class Chip8:
 
     def display_sprite_dxyn(self, vx, vy, nibble):
         sprite = self.memory[self.index_register: self.index_register + nibble]  # array of bytes
-        screen_x = self.gp_registers[vx] - 1
+        screen_x = self.gp_registers[vx]
         screen_y = self.gp_registers[vy]
 
         # convert sprite to plain bitmap (tuple of tuples)
@@ -216,22 +235,15 @@ class Chip8:
 
         # iterate the sprite overlapping region with the screen (8X{sprite length in bytes})
         for row in range(sprite_h):
-            # wrap screen when pixel is out of bounds at y
-            if screen_y + row >= SCREEN_HEIGHT:
-                screen_y = 0
-
-            for pixel_pos, pixel in enumerate(sprite_bitmap[row], 0):
-                # wrap screen when pixel is out of bounds at y
-                if screen_x + pixel_pos >= SCREEN_WIDTH:
-                    screen_x = 0
-
-                screen_pixel = self.gfx[screen_y + row][screen_x + pixel_pos]
-                # collision detection
-                if screen_pixel == pixel:
-                    self.gp_registers[0xF] = 1
-
-                # XOR pixels
-                self.gfx[screen_y + row][screen_x + pixel_pos] = screen_pixel ^ pixel
+            if screen_y + row < SCREEN_HEIGHT:
+                for pixel_pos, pixel in enumerate(sprite_bitmap[row], 0):
+                    if screen_x + pixel_pos < SCREEN_WIDTH:
+                        screen_pixel = self.gfx[screen_y + row][screen_x + pixel_pos]
+                        # collision detection
+                        if screen_pixel == pixel:
+                            self.gp_registers[0xF] = 1
+                        # XOR pixels
+                        self.gfx[screen_y + row][screen_x + pixel_pos] = screen_pixel ^ pixel
 
         self.draw_flag = True
 
@@ -265,29 +277,29 @@ class Chip8:
         self.sound_timer = self.gp_registers[vx]
 
     def add_index_fx1e(self, vx):
-        self.index_register += self.gp_registers[vx]
+        result = self.index_register + self.gp_registers[vx]
+        if result > 0xFF:
+            self.gp_registers[0xF] = 0x01
+        else:
+            self.gp_registers[0xF] = 0x00
+        self.index_register = result
 
     def set_sprite_loc_fx29(self, vx):
         self.index_register = self.gp_registers[vx] * 5
 
     def bcd_repr_fx33(self, vx):
-        reg_value = self.gp_registers[vx]
-        hundreds = reg_value // 100
-        reg_value *= 100
-
-        tens = reg_value // 10
-        reg_value *= 10
-
-        units = reg_value
+        hundreds = self.gp_registers[vx] // 100
+        tens = (self.gp_registers[vx] // 10) % 10
+        units = self.gp_registers[vx] % 10
 
         self.memory[self.index_register] = hundreds
         self.memory[self.index_register + 1] = tens
         self.memory[self.index_register + 2] = units
 
     def store_regs_fx55(self, vx):
-        for reg in range(vx):
+        for reg in range(vx + 1):
             self.memory[self.index_register + reg] = self.gp_registers[reg]
 
     def read_regs_fx65(self, vx):
-        for reg in range(vx):
+        for reg in range(vx + 1):
             self.gp_registers[reg] = self.memory[self.index_register + reg]

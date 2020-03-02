@@ -12,6 +12,22 @@ def generate_random_frame(w, h):
     return result
 
 
+def generate_lines(w, h, even):
+    result = []
+    for x in range(h):
+        row = []
+        for y in range(w):
+            if x % 2 == 0 and even:
+                row.append(1)
+            elif x % 2 != 0 and not even:
+                row.append(1)
+            else:
+                row.append(0)
+        result.append(row)
+
+    return result
+
+
 def print_sprite(sprite_bitmap):
     for row in sprite_bitmap:
         for bit in row:

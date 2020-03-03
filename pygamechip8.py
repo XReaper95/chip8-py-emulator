@@ -34,16 +34,19 @@ class PyGameChip8:
         self._screen: Surface
         self._cycle_event_id = 2
         self.beep_sound = None
+        self.sound_playing = False
 
     def setup(self):
         self.__create_windows()
         self.__init_screen()
         pg.mixer.init()
         self.beep_sound = pg.mixer.Sound('res/beep.wav')
+        pg.time.set_timer(30, 25)
+        pg.time.set_timer(31, 17)
 
     def run(self):
-        from time import sleep
         self.__initialize()
+        main_clock = pg.time.Clock()
 
         try:
             running = True
@@ -55,22 +58,22 @@ class PyGameChip8:
                         break
                     if event.type == pg.KEYDOWN:
                         self.__handle_input(event.key)
-
-               # sleep(0.001)
-                self.__tick()
+                    if event.type == 30:
+                        self.__tick()
+                    if event.type == 31:
+                        self.__update_timers()
 
         except KeyboardInterrupt:
             pass
 
     def __tick(self):
-        self._chip8.emulate_cycle()
+        for _ in range(10):
+            self._chip8.emulate_cycle()
 
-        if self._chip8.draw_flag:
-            self.__draw(self._chip8.gfx)
-            pg.display.flip()
-            self._chip8.draw_flag = False
-
-        self.__play_sound()
+            if self._chip8.draw_flag:
+                self.__draw(self._chip8.gfx)
+                pg.display.flip()
+                self._chip8.draw_flag = False
 
     def __draw(self, frame):
         for row, pixels in enumerate(frame, 0):
@@ -94,17 +97,23 @@ class PyGameChip8:
         if id:
             self._chip8.key_press(key)
 
-    def __play_sound(self):
+    def __update_timers(self):
         if self._chip8.sound_reg > 0:
-            self.beep_sound.play()
-            if self._chip8.sound_reg == 1:
-                self.beep_sound.stop()
             self._chip8.sound_reg -= 1
+            if not self.sound_playing:
+                self.sound_playing = True
+                self.beep_sound.play()
+        else:
+            if self.sound_playing:
+                self.beep_sound.stop()
+                self.sound_playing = False
 
+        if self._chip8.delay_reg > 0:
+            self._chip8.delay_reg -= 1
 
     def __initialize(self):
         self._chip8.initialize()
-        rom = Path('ROMs', 'Pong [Paul Vervalin, 1990].ch8')
+        rom = Path('ROMs', 'Animal Race [Brian Astle].ch8')
         self._chip8.load_game(rom)
 
     def __init_screen(self):

@@ -30,16 +30,16 @@ class InstructionDecoder:
         # SINGLE CASES
         opcode_single = opcode & 0xF000
         single_opcodes = {
-            0x1000: Instruction(f'JP {hex(nnn)}', chip8.jump_to_1nnn, nnn),
-            0x2000: Instruction(f'CALL {hex(nnn)}', chip8.call_subroutine_2nnn, nnn),
+            0x1000: Instruction(f'JP ${hex(nnn)}', chip8.jump_to_1nnn, nnn),
+            0x2000: Instruction(f'CALL ${hex(nnn)}', chip8.call_subroutine_2nnn, nnn),
             0x3000: Instruction(f'SE V{x}, {hex(kk)}', chip8.skip_if_equal_value_3xkk, x, kk),
             0x4000: Instruction(f'SNE V{x}, {hex(kk)}', chip8.skip_if_not_equal_value_4xkk, x, kk),
             0x5000: Instruction(f'SE V{x}, V{y}', chip8.skip_if_equal_reg_5xy0, x, y),
             0x6000: Instruction(f'LD V{x}, {hex(kk)}', chip8.set_reg_value_6xkk, x, kk),
             0x7000: Instruction(f'ADD V{x}, {hex(kk)} ', chip8.add_value_7xkk, x, kk),
             0x9000: Instruction(f'SNE V{x}, V{y}', chip8.skip_if_not_equal_reg_9xy0, x, y),
-            0xA000: Instruction(f'LD I, {hex(nnn)}', chip8.set_index_value_annn, nnn),
-            0xB000: Instruction(f'JP V0, {hex(nnn)}', chip8.jump_value_offset_bnnn, nnn),
+            0xA000: Instruction(f'LD I, ${hex(nnn)}', chip8.set_index_value_annn, nnn),
+            0xB000: Instruction(f'JP V0,${hex(nnn)}', chip8.jump_value_offset_bnnn, nnn),
             0xC000: Instruction(f'RND V{x}, {hex(kk)}', chip8.set_random_and_value_cxkk, x, kk),
             0xD000: Instruction(f'DRW V{x}, V{y}, {hex(n)}', chip8.display_sprite_dxyn, x, y, n),
         }
@@ -78,7 +78,7 @@ class InstructionDecoder:
             0xE09E: Instruction(f'SKP V{x}', chip8.skip_if_pressed_ex9e, x),
             0xE0A1: Instruction(f'SKNP V{x}', chip8.skip_if_not_pressed_exa1, x),
             0xF007: Instruction(f'LD V{x}, DT', chip8.save_delay_fx07, x),
-            0xF00A: Instruction(f'LD V{x}', chip8.wait_for_keypress_fx0a, x),
+            0xF00A: Instruction(f'LD V{x}*', chip8.wait_for_keypress_fx0a, x),
             0xF015: Instruction(f'LD DT, V{x}', chip8.set_delay_fx15, x),
             0xF018: Instruction(f'LD ST, V{x}', chip8.set_sound_fx18, x),
             0xF01E: Instruction(f'ADD I, V{x}', chip8.add_index_fx1e, x),

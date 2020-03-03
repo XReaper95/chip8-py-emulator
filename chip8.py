@@ -67,7 +67,6 @@ class Chip8:
                                     0xF0, 0x80, 0xF0, 0x80, 0xF0,  # E
                                     0xF0, 0x80, 0xF0, 0x80, 0x80]  # F
         self.draw_flag: bool = False
-        self.inc_pc: bool = True
         self.halt_execution: bool = False
 
     def initialize(self) -> NoReturn:
@@ -105,19 +104,11 @@ class Chip8:
         # decode
         instruction = InstructionDecoder.decode_from(self, opcode)
         # execute
-        #print(hex(opcode), instruction.assembly)
-        if self.key_pressed:
-            print(self.key_pressed)
+        print(hex(opcode), instruction.assembly)
         instruction.run()
-        # update timers and pc
+        # update program counter
         if not self.halt_execution and self.pc + 2 < SYSTEM_MEMORY:
-            if self.inc_pc:
-                self.pc += 2
-            else:
-                self.inc_pc = True
-
-            if self.delay_reg > 0:
-                self.delay_reg -= 1
+            self.pc += 2
 
     def key_press(self, key: Text) -> NoReturn:
         if not self.key_pressed:
@@ -149,13 +140,11 @@ class Chip8:
         self.pc = self.stack.pop()
 
     def jump_to_1nnn(self, addr):
-        self.pc = addr
-        self.inc_pc = False
+        self.pc = addr - 2
 
     def call_subroutine_2nnn(self, addr) -> NoReturn:
         self.stack.append(self.pc)
-        self.pc = addr
-        self.inc_pc = False
+        self.pc = addr - 2
 
     def skip_if_equal_value_3xkk(self, x, byte) -> NoReturn:
         if self.v[x] == byte:
@@ -200,13 +189,13 @@ class Chip8:
         else:
             self.v[0xF] = 0x00
 
-        self.v[x] = result & 0xFF
+        self.v[x] = result & 0x00FF
 
     def sub_reg_reg_8xy5(self, x, y) -> NoReturn:
-        if self.v[y] > self.v[x]:
-            self.v[0xF] = 0x00
-        else:
+        if self.v[x] >= self.v[y]:
             self.v[0xF] = 0x01
+        else:
+            self.v[0xF] = 0x00
 
         self.v[x] -= self.v[y]
 
@@ -215,7 +204,12 @@ class Chip8:
         self.v[x] >>= 1
 
     def subn_reg_reg_8xy7(self, x, y) -> NoReturn:
-        self.sub_reg_reg_8xy5(y, x)
+        if self.v[y] >= self.v[x]:
+            self.v[0xF] = 0x01
+        else:
+            self.v[0xF] = 0x00
+
+        self.v[x] = self.v[y] - self.v[x]
 
     def shl_reg_8xye(self, x) -> NoReturn:
         self.v[0xF] = self.v[x] >> 7
@@ -229,8 +223,7 @@ class Chip8:
         self.index_reg = addr
 
     def jump_value_offset_bnnn(self, addr) -> NoReturn:
-        self.pc = self.v[0] + addr
-        self.inc_pc = False
+        self.pc = self.v[0] + addr - 2
 
     def set_random_and_value_cxkk(self, x, byte) -> NoReturn:
         rnd = randint(0, 255)
@@ -261,17 +254,15 @@ class Chip8:
 
     def skip_if_pressed_ex9e(self, x) -> NoReturn:
         if self.key_pressed:
-            key = self.keypad[self.key_pressed]
-            if self.v[x] == key:
+            if self.v[x] == self.keypad[self.key_pressed]:
                 self.pc += 2
-            self.key_pressed = ''
+                self.key_pressed = ''
 
     def skip_if_not_pressed_exa1(self, x) -> NoReturn:
         if self.key_pressed:
-            key = self.keypad[self.key_pressed]
-            if self.v[x] != key:
+            if self.v[x] != self.keypad[self.key_pressed]:
                 self.pc += 2
-            self.key_pressed = ''
+                self.key_pressed = ''
         else:
             self.pc += 2
 
@@ -292,12 +283,7 @@ class Chip8:
         self.sound_reg = self.v[x]
 
     def add_index_fx1e(self, x) -> NoReturn:
-        result = self.index_reg + self.v[x]
-        if result > 0xFF:
-            self.v[0xF] = 0x01
-        else:
-            self.v[0xF] = 0x00
-        self.index_reg = result
+        self.index_reg = self.index_reg + self.v[x]
 
     def set_sprite_loc_fx29(self, x) -> NoReturn:
         self.index_reg = self.v[x] * 5

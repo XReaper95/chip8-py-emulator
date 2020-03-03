@@ -65,9 +65,9 @@ class InstructionDecoder:
             0x8003: Instruction(f'XOR V{x}, V{y}', chip8.xor_reg_reg_8xy3, x, y),
             0x8004: Instruction(f'ADD V{x}, V{y}', chip8.add_reg_carry_8xy4, x, y),
             0x8005: Instruction(f'SUB V{x}, V{y}', chip8.sub_reg_reg_8xy5, x, y),
-            0x8006: Instruction(f'SHR V{x}, V{y}', chip8.shr_reg_8xy6, x),
+            0x8006: Instruction(f'SHR V{x}, V{y}', chip8.shr_reg_8xy6, x, y),
             0x8007: Instruction(f'SUBN V{x}, V{y}', chip8.subn_reg_reg_8xy7, x, y),
-            0x800E: Instruction(f'SHL V{x}, V{y}', chip8.shl_reg_8xye, x),
+            0x800E: Instruction(f'SHL V{x}, V{y}', chip8.shl_reg_8xye, x, y),
         }
         if opcode_8 in multiple_opcodes_8:
             return multiple_opcodes_8[opcode_8]

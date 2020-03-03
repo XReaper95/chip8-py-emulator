@@ -32,7 +32,7 @@ class PyGameChip8:
         self._pixel_size: int = 10
         self._border_size: int = 1
         self._screen: Surface
-        self._cycle_event_id = 2
+        self.instruction_count = 0
         self.beep_sound = None
         self.sound_playing = False
 
@@ -41,8 +41,6 @@ class PyGameChip8:
         self.__init_screen()
         pg.mixer.init()
         self.beep_sound = pg.mixer.Sound('res/beep.wav')
-        pg.time.set_timer(30, 25)
-        pg.time.set_timer(31, 17)
 
     def run(self):
         self.__initialize()
@@ -58,22 +56,27 @@ class PyGameChip8:
                         break
                     if event.type == pg.KEYDOWN:
                         self.__handle_input(event.key)
-                    if event.type == 30:
-                        self.__tick()
-                    if event.type == 31:
-                        self.__update_timers()
+                    if event.type == pg.KEYUP:
+                        self._chip8.key_pressed = ''
+
+                self.__tick()
+                if self.instruction_count == 9:
+                    self.__update_timers()
+                    self.instruction_count = 0
+
+                main_clock.tick(540)
 
         except KeyboardInterrupt:
             pass
 
     def __tick(self):
-        for _ in range(10):
-            self._chip8.emulate_cycle()
+        self._chip8.emulate_cycle()
+        self.instruction_count += 1
 
-            if self._chip8.draw_flag:
-                self.__draw(self._chip8.gfx)
-                pg.display.flip()
-                self._chip8.draw_flag = False
+        if self._chip8.draw_flag:
+            self.__draw(self._chip8.gfx)
+            pg.display.flip()
+            self._chip8.draw_flag = False
 
     def __draw(self, frame):
         for row, pixels in enumerate(frame, 0):
@@ -86,16 +89,17 @@ class PyGameChip8:
                     pg.draw.rect(self._screen, pg.Color('black'), pg.Rect(*rect))
 
     def __handle_input(self, key_id: int):
-        keymap = {
-            pg.K_1: KEY_1, pg.K_2: KEY_2, pg.K_3: KEY_3, pg.K_4: KEY_C,
-            pg.K_q: KEY_4, pg.K_w: KEY_5, pg.K_e: KEY_6, pg.K_r: KEY_D,
-            pg.K_a: KEY_7, pg.K_s: KEY_8, pg.K_d: KEY_9, pg.K_f: KEY_E,
-            pg.K_z: KEY_A, pg.K_x: KEY_0, pg.K_c: KEY_B, pg.K_v: KEY_F,
-            }
+        if self._chip8.key_pressed == '':
+            keymap = {
+                pg.K_1: KEY_1, pg.K_2: KEY_2, pg.K_3: KEY_3, pg.K_4: KEY_C,
+                pg.K_q: KEY_4, pg.K_w: KEY_5, pg.K_e: KEY_6, pg.K_r: KEY_D,
+                pg.K_a: KEY_7, pg.K_s: KEY_8, pg.K_d: KEY_9, pg.K_f: KEY_E,
+                pg.K_z: KEY_A, pg.K_x: KEY_0, pg.K_c: KEY_B, pg.K_v: KEY_F,
+                }
 
-        key = keymap.get(key_id)
-        if id:
-            self._chip8.key_press(key)
+            key = keymap.get(key_id)
+            if id:
+                self._chip8.key_press(key)
 
     def __update_timers(self):
         if self._chip8.sound_reg > 0:
@@ -113,7 +117,7 @@ class PyGameChip8:
 
     def __initialize(self):
         self._chip8.initialize()
-        rom = Path('ROMs', 'Animal Race [Brian Astle].ch8')
+        rom = Path('ROMs', 'Minimal game [Revival Studios, 2007].ch8')
         self._chip8.load_game(rom)
 
     def __init_screen(self):

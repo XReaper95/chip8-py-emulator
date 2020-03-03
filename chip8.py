@@ -111,8 +111,7 @@ class Chip8:
             self.pc += 2
 
     def key_press(self, key: Text) -> NoReturn:
-        if not self.key_pressed:
-            self.key_pressed = key
+        self.key_pressed = key
 
     def dump_memory(self) -> NoReturn:
         memory_pointer = MIN_PROGRAM_ADDR
@@ -199,9 +198,9 @@ class Chip8:
 
         self.v[x] -= self.v[y]
 
-    def shr_reg_8xy6(self, x) -> NoReturn:
-        self.v[0xF] = self.v[x] & 0x1
-        self.v[x] >>= 1
+    def shr_reg_8xy6(self, x, y) -> NoReturn:
+        self.v[0xF] = self.v[y] & 0x1
+        self.v[x] = self.v[y] >> 0x1
 
     def subn_reg_reg_8xy7(self, x, y) -> NoReturn:
         if self.v[y] >= self.v[x]:
@@ -211,9 +210,9 @@ class Chip8:
 
         self.v[x] = self.v[y] - self.v[x]
 
-    def shl_reg_8xye(self, x) -> NoReturn:
-        self.v[0xF] = self.v[x] >> 7
-        self.v[x] <<= 1
+    def shl_reg_8xye(self, x, y) -> NoReturn:
+        self.v[0xF] = (self.v[y] >> 7) & 0x01
+        self.v[x] = self.v[y] << 1
 
     def skip_if_not_equal_reg_9xy0(self, x, y) -> NoReturn:
         if self.v[x] != self.v[y]:
@@ -256,13 +255,11 @@ class Chip8:
         if self.key_pressed:
             if self.v[x] == self.keypad[self.key_pressed]:
                 self.pc += 2
-                self.key_pressed = ''
 
     def skip_if_not_pressed_exa1(self, x) -> NoReturn:
         if self.key_pressed:
             if self.v[x] != self.keypad[self.key_pressed]:
                 self.pc += 2
-                self.key_pressed = ''
         else:
             self.pc += 2
 
@@ -274,7 +271,6 @@ class Chip8:
         if self.key_pressed:
             self.halt_execution = False
             self.v[x] = self.keypad[self.key_pressed]
-            self.key_pressed = ''
 
     def set_delay_fx15(self, x) -> NoReturn:
         self.delay_reg = self.v[x]
@@ -301,6 +297,10 @@ class Chip8:
         for reg in range(x + 1):
             self.memory[self.index_reg + reg] = self.v[reg]
 
+        self.index_reg += x + 1
+
     def read_regs_fx65(self, x) -> NoReturn:
         for reg in range(x + 1):
             self.v[reg] = self.memory[self.index_reg + reg]
+
+        self.index_reg += x + 1

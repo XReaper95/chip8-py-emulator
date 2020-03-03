@@ -36,14 +36,14 @@ class PyGameChip8:
         self.beep_sound = None
         self.sound_playing = False
 
-    def setup(self):
+    def setup(self, game: str):
         self.__create_windows()
         self.__init_screen()
         pg.mixer.init()
         self.beep_sound = pg.mixer.Sound('res/beep.wav')
+        self.__initialize(game)
 
     def run(self):
-        self.__initialize()
         main_clock = pg.time.Clock()
 
         try:
@@ -60,11 +60,12 @@ class PyGameChip8:
                         self._chip8.key_pressed = ''
 
                 self.__tick()
-                if self.instruction_count == 9:
+                if self.instruction_count == 8:
+                    pg.time.wait(3)
                     self.__update_timers()
                     self.instruction_count = 0
 
-                main_clock.tick(540)
+                main_clock.tick(500)
 
         except KeyboardInterrupt:
             pass
@@ -95,7 +96,7 @@ class PyGameChip8:
                 pg.K_q: KEY_4, pg.K_w: KEY_5, pg.K_e: KEY_6, pg.K_r: KEY_D,
                 pg.K_a: KEY_7, pg.K_s: KEY_8, pg.K_d: KEY_9, pg.K_f: KEY_E,
                 pg.K_z: KEY_A, pg.K_x: KEY_0, pg.K_c: KEY_B, pg.K_v: KEY_F,
-                }
+            }
 
             key = keymap.get(key_id)
             if id:
@@ -115,9 +116,9 @@ class PyGameChip8:
         if self._chip8.delay_reg > 0:
             self._chip8.delay_reg -= 1
 
-    def __initialize(self):
+    def __initialize(self, game: str):
         self._chip8.initialize()
-        rom = Path('ROMs', 'Minimal game [Revival Studios, 2007].ch8')
+        rom = Path('ROMs', game)
         self._chip8.load_game(rom)
 
     def __init_screen(self):
@@ -148,5 +149,5 @@ class PyGameChip8:
 
 if __name__ == '__main__':
     pyg_chip8 = PyGameChip8()
-    pyg_chip8.setup()
+    pyg_chip8.setup('test_opcode.ch8')
     pyg_chip8.run()
